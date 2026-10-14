@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Before-and-After Verification — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Security Operations / 5. Verification{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-text); margin-bottom: 4px;">
+    Empirical Before-and-After Verification
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--color-text-muted);">
+    Empirically compare a baseline audit against a post-remediation rescan to scientifically prove risk reduction.
+  </p>
+</div>
+
+<!-- Selector Form -->
+<div class="card">
+  <form method="GET" action="{{ url_for('verification.verification_view') }}">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: end;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="baseline_id">1. Select Baseline Scan (Before Remediation)</label>
+        <select class="form-select" id="baseline_id" name="baseline_id" required>
+          <option value="">-- Choose Baseline Scan --</option>
+          {% for s in scans %}
+            <option value="{{ s.id }}" {% if baseline_id == s.id %}selected{% endif %}>
+              #{{ s.id }} | {{ s.hostname }} | Score: {{ s.score }} | CVSS: {{ "%.1f"|format(s.max_cvss) }} ({{ s.timestamp[:10] }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="rescan_id">2. Select Follow-Up Rescan (After Remediation)</label>
+        <select class="form-select" id="rescan_id" name="rescan_id" required>
+          <option value="">-- Choose Follow-Up Scan --</option>
+          {% for s in scans %}
+            <option value="{{ s.id }}" {% if rescan_id == s.id %}selected{% endif %}>
+              #{{ s.id }} | {{ s.hostname }} | Score: {{ s.score }} | CVSS: {{ "%.1f"|format(s.max_cvss) }} ({{ s.timestamp[:10] }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          Run Comparative Differential Audit
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Comparison Results -->
+{% if comparison %}
+  {% if comparison.error %}
+    <div class="alert alert-warning">{{ comparison.error }}</div>
+  {% else %}
+
+    <!-- Delta Summary Cards -->
+    <div class="metrics-grid">
+      <!-- CVSS Delta Hero -->
+      <div class="metric-card {% if comparison.cvss_delta < 0 %}accent-emerald{% elif comparison.cvss_delta > 0 %}accent-red{% else %}accent-purple{% endif %}">
+        <div class="metric-label">CVSS v3.0 Risk Reduction Trajectory</div>
+        <div class="metric-value" style="color: {% if comparison.cvss_delta < 0 %}var(--sev-pass){% elif comparison.cvss_delta > 0 %}var(--sev-critical){% else %}var(--color-text){% endif %};">
+          {% if comparison.cvss_delta > 0 %}+{% endif %}{{ "%.1f"|format(comparison.cvss_delta) }} pts
+        </div>
+        <div class="metric-sub">
+          Baseline CVSS {{ "%.1f"|format(comparison.cvss_a) }} ({{ comparison.sev_a }}) → Rescan CVSS {{ "%.1f"|format(comparison.cvss_b) }} ({{ comparison.sev_b }})
+        </div>
+      </div>
+
+      <!-- Vulnerability Posture Status -->
+      <div class="metric-card {% if comparison.cvss_b == 0.0 %}accent-emerald{% elif comparison.cvss_b < comparison.cvss_a %}accent-purple{% else %}accent-amber{% endif %}">
+        <div class="metric-label">Post-Remediation CVSS v3.0 Posture</div>
+        <div class="metric-value" style="color: {{ comparison.cvss_b | cvss_color }};">
+          CVSS {{ "%.1f"|format(comparison.cvss_b) }}
+        </div>
+        <div class="metric-sub">
+          Current Qualitative Rating: <strong>{{ comparison.sev_b | upper }}</strong>
+        </div>
+      </div>
+
+      <!-- Resolved Gaps -->
+      <div class="metric-card accent-emerald">
+        <div class="metric-label">Gaps Resolved (Fixed)</div>
+        <div class="metric-value" style="color: var(--sev-pass);">{{ comparison.resolved_count }}</div>
+        <div class="metric-sub">Formerly failed, now passed</div>
+      </div>
+
+      <!-- Regressed or Remaining -->
+      <div class="metric-card {% if comparison.regressed_count > 0 %}accent-red{% else %}accent-amber{% endif %}">
+        <div class="metric-label">Remaining / Regressed Gaps</div>
+        <div class="metric-value" style="color: {% if comparison.regressed_count > 0 %}var(--sev-critical){% else %}var(--sev-medium){% endif %};">
+          {{ comparison.remaining_count }} <span style="font-size: 1rem; color: var(--color-text-muted);">rem</span> / {{ comparison.regressed_count }} <span style="font-size: 1rem; color: var(--color-text-muted);">reg</span>
+        </div>
+        <div class="metric-sub">{{ comparison.remaining_count }} still failing, {{ comparison.regressed_count }} newly failing</div>
+      </div>
+    </div>
+
+    <!-- Differential Findings Tables -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Detailed Security Differential Breakdown</div>
+        <div class="card-subtitle">Empirical check-by-check state transitions</div>
+      </div>
+
+      <!-- Tabs for Differential views -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="diff-resolved">
+          Resolved Checks ({{ comparison.resolved_count }})
+        </button>
+        <button class="tab-btn" data-tab="diff-remaining">
+          Remaining Gaps ({{ comparison.remaining_count }})
+        </button>
+        {% if comparison.regressed_count > 0 %}
+        <button class="tab-btn" data-tab="diff-regressed" style="color: var(--sev-critical);">
+          Regressed Checks ({{ comparison.regressed_count }})
+        </button>
+        {% endif %}
+        <button class="tab-btn" data-tab="diff-headers">
+          HTTP Header Diffs
+        </button>
+      </div>
+
+      <!-- Resolved Pane -->
+      <div id="diff-resolved" class="tab-content active">
+        {% if comparison.resolved %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Security Control</th>
+                <th>Status Before</th>
+                <th>Status After</th>
+                <th>Resolution Evidence (Observed in Rescan)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in comparison.resolved %}
+              <tr>
+                <td style="font-weight: 700; color: var(--color-text);">
+                  {{ item.title }}
+                  <div style="font-size: 0.72rem; color: var(--color-text-muted);">{{ item.category }}</div>
+                </td>
+                <td><span class="badge badge-fail">{{ item.status_before }}</span></td>
+                <td><span class="badge badge-pass">{{ item.status_after }}</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--sev-pass-text);">
+                  {{ item.evidence_after }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: var(--color-text-muted);">
+          No resolved gaps between these two scans.
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Remaining Pane -->
+      <div id="diff-remaining" class="tab-content">
+        {% if comparison.remaining %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Security Control</th>
+                <th>Status Before</th>
+                <th>Status After</th>
+                <th>Unresolved Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in comparison.remaining %}
+              <tr>
+                <td style="font-weight: 700;">{{ item.title }}</td>
+                <td><span class="badge badge-fail">{{ item.status_before }}</span></td>
+                <td><span class="badge badge-fail">{{ item.status_after }}</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--sev-critical-text);">
+                  {{ item.evidence_after }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: var(--sev-pass);">
+          No remaining gaps found between these two audits.
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Regressed Pane -->
+      {% if comparison.regressed %}
+      <div id="diff-regressed" class="tab-content">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Security Control</th>
+                <th>Status Before</th>
+                <th>Status After (Regressed)</th>
+                <th>Observed Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in comparison.regressed %}
+              <tr>
+                <td style="font-weight: 700; color: var(--sev-critical);">{{ item.title }}</td>
+                <td><span class="badge badge-pass">{{ item.status_before }}</span></td>
+                <td><span class="badge badge-fail">{{ item.status_after }}</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--sev-critical-text);">
+                  {{ item.evidence_after }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Headers Diff Pane -->
+      <div id="diff-headers" class="tab-content">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Header Name</th>
+                <th>Baseline (Before)</th>
+                <th>Rescan (After)</th>
+                <th>Delta State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for hd in comparison.header_diffs %}
+              <tr>
+                <td style="font-family: var(--font-mono); font-weight: 600;">{{ hd.header }}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-muted); max-width: 250px;">
+                  {{ hd.before or '— Absent —' }}
+                </td>
+                <td style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--sev-pass-text); max-width: 250px;">
+                  {{ hd.after or '— Absent —' }}
+                </td>
+                <td>
+                  {% if hd.status == 'added' %}
+                    <span class="badge badge-pass">+ ADDED</span>
+                  {% elif hd.status == 'removed' %}
+                    <span class="badge badge-fail">- REMOVED</span>
+                  {% elif hd.status == 'changed' %}
+                    <span class="badge badge-warning">~ CHANGED</span>
+                  {% else %}
+                    <span class="badge badge-not-assessed">SAME</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 20px;">
+  <div style="margin-bottom: 12px; display: flex; justify-content: center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+      <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+      <path d="M7 21h10"></path>
+      <path d="M12 3v18"></path>
+      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path>
+    </svg>
+  </div>
+  <div style="font-size: 1.15rem; font-weight: 700; color: var(--color-text);">Select Two Audit Records to Compare</div>
+  <div style="font-size: 0.85rem; color: var(--color-text-muted); max-width: 500px; margin: 8px auto 0 auto;">
+    Choose a baseline scan (before fixes) and a follow-up rescan (after hardening) to generate an empirical differential audit report.
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

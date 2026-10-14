@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Operations Overview — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Security Operations / 2. Overview & Trends{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--color-text); margin-bottom: 4px;">
+      Executive Security Operations Overview
+    </h2>
+    <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+      Continuous configuration hygiene, CVSS v3.0 risk distributions, and remediation lifecycle metrics.
+    </p>
+  </div>
+  <a href="{{ url_for('scanner.scanner_view') }}" class="btn btn-primary btn-sm">
+    + Launch New Scan
+  </a>
+</div>
+
+<!-- Metrics Grid -->
+<div class="metrics-grid">
+  <div class="metric-card accent-purple">
+    <div class="metric-label">Total Audits Executed</div>
+    <div class="metric-value">{{ trends.total_scans }}</div>
+    <div class="metric-sub">{{ trends.unique_targets }} distinct target host(s)</div>
+  </div>
+
+  <div class="metric-card {% if trends.avg_cvss_score >= 7.0 %}accent-red{% elif trends.avg_cvss_score >= 4.0 %}accent-amber{% else %}accent-emerald{% endif %}">
+    <div class="metric-label">Average CVSS v3.0 Risk Score</div>
+    <div class="metric-value" style="color: {{ trends.avg_cvss_score | cvss_color }};">
+      {{ "%.1f"|format(trends.avg_cvss_score) }}<span style="font-size: 1rem; color: var(--color-text-muted);">/ 10.0</span>
+    </div>
+    <div class="metric-sub">FIRST CVSS v3.0 risk average</div>
+  </div>
+
+  <div class="metric-card accent-red">
+    <div class="metric-label">Highest Observed CVSS v3.0</div>
+    <div class="metric-value" style="color: {{ trends.max_cvss_score | cvss_color }};">
+      {{ "%.1f"|format(trends.max_cvss_score) }}
+    </div>
+    <div class="metric-sub">
+      {% if trends.max_cvss_score >= 9.0 %}CRITICAL severity gap
+      {% elif trends.max_cvss_score >= 7.0 %}HIGH severity gap
+      {% elif trends.max_cvss_score >= 4.0 %}MEDIUM severity gap
+      {% elif trends.max_cvss_score > 0 %}LOW severity gap
+      {% else %}No active CVSS gaps
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="metric-card accent-amber">
+    <div class="metric-label">Open Remediation Tasks</div>
+    <div class="metric-value" style="color: var(--sev-medium);">{{ trends.open_remediation_tasks }}</div>
+    <div class="metric-sub">{{ trends.resolved_count }} finding(s) verified fixed</div>
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px;">
+  <!-- CVSS v3.0 Distribution Chart -->
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header">
+      <div class="card-title">Official CVSS v3.0 Severity Distribution</div>
+      <div class="card-subtitle">Active Findings Severity Breakdown</div>
+    </div>
+    <div style="height: 250px; position: relative;">
+      <canvas id="chart-cvss-distribution"></canvas>
+    </div>
+  </div>
+
+  <!-- Category Breakdown Chart -->
+  <div class="card" style="margin-bottom: 0;">
+    <div class="card-header">
+      <div class="card-title">Security Gap Categories</div>
+      <div class="card-subtitle">Findings Grouped by Defensive Area</div>
+    </div>
+    <div style="height: 250px; position: relative;">
+      <canvas id="chart-categories"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Activity & Score Trend Chart -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Audit Activity & Security Posture Trajectory</div>
+    <div class="card-subtitle">Compliance Score Averages & Audit Volume Over Time</div>
+  </div>
+  <div style="height: 270px; position: relative;">
+    <canvas id="chart-activity-trend"></canvas>
+  </div>
+</div>
+
+<!-- Recent Scans Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Recent Security Configuration Scans</div>
+    <a href="{{ url_for('history.history_view') }}" class="card-subtitle" style="color: var(--color-primary); font-weight: 600;">
+      View Complete History
+    </a>
+  </div>
+
+  {% if recent_scans %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Target Hostname</th>
+          <th>Timestamp</th>
+          <th>CVSS v3.0 Base Score</th>
+          <th>Qualitative Severity</th>
+          <th>Checks Breakdown</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in recent_scans %}
+        <tr>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: var(--color-text-muted);">#{{ s.id }}</td>
+          <td style="font-weight: 600;">
+            <a href="{{ url_for('scanner.scanner_view', scan_id=s.id) }}" style="color: var(--color-text);">
+              {{ s.hostname }}
+            </a>
+            {% if s.is_demo %}
+              <span class="badge badge-primary" style="font-size: 0.65rem; margin-left: 4px;">DEMO</span>
+            {% endif %}
+          </td>
+          <td style="font-size: 0.78rem; color: var(--color-text-muted);">{{ s.timestamp[:19] }}</td>
+          <td>
+            <span style="font-weight: 800; font-size: 1.05rem; color: {{ s.max_cvss | cvss_color }};">
+              {{ "%.1f"|format(s.max_cvss) }}
+            </span>
+            <span style="font-size: 0.75rem; color: var(--color-text-muted);">/ 10.0</span>
+          </td>
+          <td>
+            <span class="badge {% if s.max_cvss >= 9.0 %}badge-critical{% elif s.max_cvss >= 7.0 %}badge-high{% elif s.max_cvss >= 4.0 %}badge-medium{% elif s.max_cvss > 0 %}badge-low{% else %}badge-pass{% endif %}">
+              {{ s.cvss_severity }}
+            </span>
+          </td>
+          <td>
+            <span class="badge badge-pass">P: {{ s.passed_checks }}</span>
+            <span class="badge badge-warning">W: {{ s.warning_checks }}</span>
+            <span class="badge badge-fail">F: {{ s.failed_checks }}</span>
+          </td>
+          <td>
+            <a href="{{ url_for('scanner.scanner_view', scan_id=s.id) }}" class="btn btn-secondary btn-sm">
+              Inspect
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+    <div style="font-weight: 600; color: var(--color-text);">No scan records recorded yet</div>
+    <div style="font-size: 0.82rem; margin-top: 4px;">Run a scan using the New Scan page or initialize demo history in Settings.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const trendsData = {{ trends | tojson | safe }};
+    renderDashboardCharts(trendsData);
+  });
+</script>
+{% endblock %}

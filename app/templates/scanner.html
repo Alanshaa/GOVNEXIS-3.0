@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}New Security Audit — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Security Operations / 1. New Security Scan{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--color-text); margin-bottom: 4px;">
+    New Security Audit Scan
+  </h2>
+  <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+    Passive, defensive configuration assessment of public HTTP headers, cookie security flags, and TLS parameters.
+  </p>
+</div>
+
+<!-- Scope & Authorization Notice Card -->
+<div class="card" style="border-left: 4px solid var(--color-primary); background: var(--color-primary-soft);">
+  <div style="display: flex; gap: 12px; align-items: flex-start;">
+    <div style="color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin-top: 2px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div>
+      <div style="font-weight: 700; font-size: 0.82rem; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.04em;">
+        Authorized Defensive Audit Policy
+      </div>
+      <div style="font-size: 0.82rem; color: var(--color-text-muted); margin-top: 4px; line-height: 1.45;">
+        GOVNEXIS 3.0 inspects public HTTP response headers, cookie attributes, and TLS connection parameters.
+        It performs no destructive exploits, denial-of-service, or brute force attacks. SSRF guards prevent
+        internal network scanning; only public domains and the controlled Demo Sandbox are permitted.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Presets -->
+<div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+  <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase;">Quick Fill:</span>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="fillTargetUrl('{{ local_demo_url }}')">
+    Local Demo Target (127.0.0.1:8765)
+  </button>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="fillTargetUrl('https://example.gov')">
+    Public Example (example.gov)
+  </button>
+</div>
+
+<!-- Audit Scan Form -->
+<div class="card">
+  <form id="scan-form" action="{{ url_for('scanner.scanner_view') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-group">
+      <label class="form-label" for="target_url">Target Website Hostname or URL</label>
+      <input 
+        type="text" 
+        class="form-control" 
+        id="target_url" 
+        name="target_url" 
+        value="{{ target_url or '' }}" 
+        placeholder="https://agency.example.gov or 127.0.0.1:8765" 
+        required 
+        style="font-size: 0.95rem; padding: 11px 14px;"
+      >
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 5px;">
+        Accepts standard domain names or HTTP/HTTPS endpoints. Default port 443 (HTTPS) or 80 (HTTP).
+      </div>
+    </div>
+
+    <div class="form-check">
+      <input type="checkbox" class="form-check-input" id="auth_confirmed" name="auth_confirmed" required>
+      <label class="form-check-label" for="auth_confirmed">
+        <strong>Mandatory Authorization Certification:</strong> I certify that I am the authorized website owner, administrator, or have explicit written permission to audit this endpoint.
+      </label>
+    </div>
+
+    <div style="margin-top: 18px;">
+      <button type="submit" id="scan-submit-btn" class="btn btn-primary btn-block" style="padding: 11px 20px; font-size: 0.92rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Execute Security Configuration Audit
+      </button>
+    </div>
+  </form>
+
+  <!-- Live Scan Progress Box -->
+  <div id="scan-progress-box" style="display: none; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span id="scan-progress-phase" style="font-size: 0.82rem; font-weight: 600; color: var(--color-primary);">
+        Initializing defensive audit pipeline...
+      </span>
+      <span class="status-pill"><span class="pulse-dot"></span> LIVE AUDIT</span>
+    </div>
+    <div style="width: 100%; height: 6px; background: var(--color-bg-secondary); border-radius: var(--radius-full); overflow: hidden;">
+      <div id="scan-progress-bar" style="width: 15%; height: 100%; background: var(--color-primary); transition: width 0.3s ease;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Completed Scan Results View -->
+{% if active_scan %}
+{% set res = active_scan.details %}
+{% set score_rep = res.score_report %}
+{% set max_cvss = score_rep.max_cvss_score or 0.0 %}
+
+<div style="margin-top: 32px; margin-bottom: 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <span class="badge badge-pass" style="margin-bottom: 6px;">AUDIT COMPLETE — RECORD #{{ active_scan.id }}</span>
+      <h3 style="font-size: 1.3rem; font-weight: 700; color: var(--color-text);">
+        Audit Findings: <span style="color: var(--color-primary);">{{ active_scan.hostname }}</span>
+      </h3>
+      <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">
+        Audited at {{ active_scan.timestamp }} | Response Code: {{ active_scan.status_code }} | Duration: {{ active_scan.duration_ms }} ms
+      </div>
+    </div>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+      <a href="{{ url_for('reports.download_report', format_type='pdf', scan_id=active_scan.id) }}" class="btn btn-secondary btn-sm">
+        PDF Export
+      </a>
+      <a href="{{ url_for('reports.download_report', format_type='html', scan_id=active_scan.id) }}" class="btn btn-secondary btn-sm">
+        HTML Report
+      </a>
+      <a href="{{ url_for('reports.download_report', format_type='json', scan_id=active_scan.id) }}" class="btn btn-secondary btn-sm">
+        JSON
+      </a>
+      <a href="{{ url_for('reports.download_report', format_type='csv', scan_id=active_scan.id) }}" class="btn btn-secondary btn-sm">
+        CSV
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Official FIRST CVSS v3.0 Security Score Hero -->
+<div class="score-hero">
+  <div style="display: flex; align-items: center; gap: 28px; flex-wrap: wrap;">
+    <!-- Primary CVSS v3.0 Base Score -->
+    <div>
+      <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em;">
+        Official FIRST CVSS v3.0 Base Score
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 4px;">
+        <span class="score-number" style="color: {{ max_cvss | cvss_color }};">
+          {{ "%.1f"|format(max_cvss) }}
+        </span>
+        <span style="font-size: 1.3rem; color: var(--color-text-muted); font-weight: 600;">/ 10.0</span>
+        <span class="grade-badge" style="color: {{ max_cvss | cvss_color }}; border-color: {{ max_cvss | cvss_color }}; text-transform: uppercase;">
+          {{ active_scan.max_cvss_severity }} RISK
+        </span>
+      </div>
+    </div>
+
+    <div style="height: 50px; width: 1px; background: var(--color-border); display: none; @media(min-width: 768px){ display: block; }"></div>
+
+    <!-- Official Qualitative Severity Summary -->
+    <div>
+      <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em;">
+        FIRST CVSS v3.0 Qualitative Assessment
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+        {% if max_cvss >= 9.0 %}
+          <span class="badge badge-critical" style="font-size: 0.85rem; padding: 4px 10px;">CRITICAL RISK VULNERABILITIES DETECTED</span>
+        {% elif max_cvss >= 7.0 %}
+          <span class="badge badge-high" style="font-size: 0.85rem; padding: 4px 10px;">HIGH RISK EXPOSURES DETECTED</span>
+        {% elif max_cvss >= 4.0 %}
+          <span class="badge badge-medium" style="font-size: 0.85rem; padding: 4px 10px;">MEDIUM RISK CONFIGURATION GAPS</span>
+        {% elif max_cvss > 0.0 %}
+          <span class="badge badge-low" style="font-size: 0.85rem; padding: 4px 10px;">LOW RISK HYGIENE ISSUES</span>
+        {% else %}
+          <span class="badge badge-pass" style="font-size: 0.85rem; padding: 4px 10px;">PASSED — ZERO EXPLOITABLE FLAWS FOUND</span>
+        {% endif %}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 4px;">
+        {{ score_rep.scored_vulnerabilities_count }} scored vulnerability finding(s) | Standard: FIRST CVSS v3.0 Specification
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: right;">
+    <div style="display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 8px;">
+      <span class="badge badge-pass badge-pill">PASS: {{ active_scan.passed_checks }}</span>
+      <span class="badge badge-warning badge-pill">WARN: {{ active_scan.warning_checks }}</span>
+      <span class="badge badge-fail badge-pill">FAIL: {{ active_scan.failed_checks }}</span>
+    </div>
+    <a href="{{ url_for('findings.findings_view', scan_id=active_scan.id) }}" class="btn btn-secondary btn-sm">
+      Explore Findings Center
+    </a>
+  </div>
+</div>
+
+<!-- Findings Breakdown Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      Evaluated Security Configuration Checks & Observed Evidence
+    </div>
+    <div class="card-subtitle">
+      10 Defensive Rules Aligned with CISA BOD 18-01, NIST SP 800-52 & OWASP
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Security Control</th>
+          <th style="text-align: center;">Status</th>
+          <th>CVSS v3.0 Base</th>
+          <th>Observed Technical Evidence</th>
+          <th>Remediation Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in active_scan.findings %}
+        <tr>
+          <td style="font-weight: 600; min-width: 170px;">
+            <div>{{ f.title }}</div>
+            <div style="font-size: 0.7rem; color: var(--color-text-muted); font-weight: 400;">{{ f.category }}</div>
+          </td>
+          <td style="text-align: center;">
+            {% if f.status == 'PASS' %}
+              <span class="badge badge-pass badge-pill">PASS</span>
+            {% elif f.status == 'WARNING' %}
+              <span class="badge badge-warning badge-pill">WARNING</span>
+            {% elif f.status == 'FAIL' %}
+              <span class="badge badge-fail badge-pill">FAIL</span>
+            {% else %}
+              <span class="badge badge-not-assessed badge-pill">{{ f.status }}</span>
+            {% endif %}
+          </td>
+          <td style="min-width: 140px;">
+            {% if f.cvss_status == 'SCORED' and f.cvss_score is not none %}
+              <span class="badge {% if f.cvss_score >= 9.0 %}badge-critical{% elif f.cvss_score >= 7.0 %}badge-high{% elif f.cvss_score >= 4.0 %}badge-medium{% else %}badge-low{% endif %}">
+                CVSS {{ "%.1f"|format(f.cvss_score) }} {{ f.cvss_severity }}
+              </span>
+              {% if f.cvss_vector %}
+                <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--color-text-muted); margin-top: 3px; word-break: break-all;">
+                  {{ f.cvss_vector }}
+                </div>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-not-assessed">NOT SCORED</span>
+              <div style="font-size: 0.65rem; color: var(--color-text-muted); margin-top: 3px;">
+                Defense-in-depth hygiene
+              </div>
+            {% endif %}
+          </td>
+          <td style="max-width: 280px; font-family: var(--font-mono); font-size: 0.75rem;">
+            {{ f.evidence }}
+          </td>
+          <td style="font-size: 0.8rem; color: var(--color-text); min-width: 180px;">
+            {{ f.recommended_action }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

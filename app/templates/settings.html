@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Settings & Standards — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Sandbox & Standards / 9. Settings & Methodology{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-text); margin-bottom: 4px;">
+    Settings, Standards Mapping & Guided Help
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--color-text-muted);">
+    Transparent scoring methodology, federal compliance standards mappings, scanner limits, and troubleshooting.
+  </p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs-nav">
+  <button class="tab-btn active" data-tab="set-standards">Standards & CVSS v3.0 Mapping</button>
+  <button class="tab-btn" data-tab="set-about">About Us & Team NEXION</button>
+  <button class="tab-btn" data-tab="set-constraints">Scanner Limits</button>
+  <button class="tab-btn" data-tab="set-help">Troubleshooting Guide</button>
+  <button class="tab-btn" data-tab="set-database">Database & Maintenance</button>
+</div>
+
+<!-- Tab: Standards Mapping -->
+<div id="set-standards" class="tab-content active">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Government & Industry Security Standards Mapping</div>
+      <div class="card-subtitle">Transparent Rule Mapping to CISA BOD 18-01, NIST SP 800-52r2 & FIRST CVSS v3.0</div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Security Rule</th>
+            <th>FIRST CVSS v3.0 Baseline</th>
+            <th>Standard Reference</th>
+            <th>Assessment Nature</th>
+            <th>Rule Description & Evidence Focus</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in standards %}
+          <tr>
+            <td style="font-weight: 700; color: var(--color-text); min-width: 170px;">
+              {{ r.title }}
+              <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-text-muted);">{{ r.check_id }}</div>
+            </td>
+            <td>
+              {% if r.cvss_score %}
+                <span class="badge {% if r.cvss_score >= 9.0 %}badge-critical{% elif r.cvss_score >= 7.0 %}badge-high{% elif r.cvss_score >= 4.0 %}badge-medium{% else %}badge-low{% endif %}">
+                  CVSS {{ "%.1f"|format(r.cvss_score) }} {{ r.cvss_severity }}
+                </span>
+                <div style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--color-text-muted); margin-top: 2px;">{{ r.cvss_vector }}</div>
+              {% else %}
+                <span class="badge badge-info">Not Scored (Hygiene)</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 0.8rem; font-weight: 600; color: var(--color-primary); min-width: 160px;">
+              {{ r.standard }}
+            </td>
+            <td>
+              {% if 'Critical' in r.nature or 'High' in r.nature or 'Medium' in r.nature %}
+                <span class="badge badge-fail badge-pill">{{ r.nature }}</span>
+              {% else %}
+                <span class="badge badge-info badge-pill">{{ r.nature }}</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 0.82rem; color: var(--color-text-muted); line-height: 1.45;">
+              {{ r.description }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="padding: 16px; background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-top: 16px; font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.5;">
+      <strong>Scoring Guarantee:</strong> GOVNEXIS 3.0 exclusively implements the official FIRST CVSS v3.0 base specification. 
+      It does not use proprietary or arbitrary points matrices. Passive defense-in-depth items without confirmed exploit vectors are designated as Not Scored to avoid speculative vulnerability inflation.
+    </div>
+  </div>
+</div>
+
+<!-- Tab: About Us & Team NEXION -->
+<div id="set-about" class="tab-content">
+  <!-- Team NEXION Showcase Card -->
+  <div class="card" style="border: 1px solid var(--color-primary-border); background: var(--color-surface-elevated);">
+    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+      <img src="{{ url_for('static', filename='images/nexion_logo.png') }}" alt="NEXION Team Logo" style="width: 76px; height: 76px; object-fit: contain; border-radius: var(--radius-md); background: #0B0B0E; padding: 6px; border: 1px solid var(--color-border); flex-shrink: 0; box-shadow: var(--shadow-sm);">
+      <div style="flex: 1; min-width: 260px;">
+        <span class="badge badge-pass" style="margin-bottom: 6px;">CORE ENGINEERING TEAM</span>
+        <h3 style="font-size: 1.35rem; font-weight: 800; color: var(--color-text);">
+          Created by <span style="color: var(--color-primary);">NEXION</span>
+        </h3>
+        <div style="font-size: 0.82rem; color: var(--color-text-muted); margin-top: 2px;">
+          Curiosity · Progress · Defensive & Vulnerability Assessment Engineering
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 16px; font-size: 0.88rem; color: var(--color-text-muted); line-height: 1.6; border-top: 1px solid var(--color-border-subtle); padding-top: 14px;">
+      GOVNEXIS 3.0 was designed, conceptualized, and built by <strong>Team NEXION</strong>. Driven by the philosophy of continuous technological progress and empirical verification, Team NEXION developed this auditing platform to provide transparent, scientifically credible cybersecurity assessments for critical digital infrastructure.
+    </div>
+  </div>
+
+  <!-- Project Overview Card -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="{{ url_for('static', filename='images/govnexis_logo.png') }}" alt="GOVNEXIS Logo" style="width: 36px; height: 36px; object-fit: contain; border-radius: var(--radius-sm); background: #0B0B0E; padding: 2px; border: 1px solid var(--color-border);">
+        <div>
+          <div class="card-title">{{ app_name }} — {{ app_category }}</div>
+          <div class="card-subtitle">Version {{ app_version }} | Architecture: Flask + SQLite + Jinja2 + Chart.js</div>
+        </div>
+      </div>
+    </div>
+
+    <blockquote style="border-left: 3px solid var(--color-primary); padding-left: 14px; font-style: italic; color: var(--color-text-muted); margin-bottom: 20px;">
+      "{{ app_tagline }}"
+    </blockquote>
+
+    <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.6; margin-bottom: 16px;">
+      {{ app_description }}
+    </p>
+
+    <h4 style="font-size: 1rem; font-weight: 700; color: var(--color-text); margin: 20px 0 10px 0;">Platform Engineering Highlights</h4>
+    <ul style="padding-left: 20px; font-size: 0.88rem; color: var(--color-text-muted); line-height: 1.6;">
+      <li><strong>Official FIRST CVSS v3.0 Scoring:</strong> Eliminates proprietary scoring matrices in favor of the international FIRST CVSS v3.0 standard. All discovered vulnerabilities are evaluated using official equations and vector serialization.</li>
+      <li><strong>Defensive-Only Architecture:</strong> Non-intrusive inspection of publicly advertised headers, cookies, and TLS parameters without fuzzing or payloads.</li>
+      <li><strong>Strict SSRF Perimeter:</strong> Disallows all loopback (127.x, localhost), private (RFC1918), link-local, and multicast addresses with a strict single-port sandbox exception.</li>
+      <li><strong>Empirical Verification Workflow:</strong> Validates fixes through repeatable before-and-after audit comparisons rather than manual checkboxes.</li>
+      <li><strong>Production Export Suite:</strong> Real-time generation of executive PDF, standalone HTML, JSON, and CSV reports.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Tab: Scanner Limits -->
+<div id="set-constraints" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Defensive Scanner Engine Configuration Limits</div>
+      <div class="card-subtitle">Pre-configured connection timeouts, redirect limits, and request headers</div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <tbody>
+          <tr>
+            <td style="font-weight: 600; width: 280px;">TCP Connect Timeout</td>
+            <td><code>{{ connect_timeout }} seconds</code></td>
+            <td style="font-size: 0.8rem; color: var(--color-text-muted);">Prevents hanging sockets against slow or non-responsive hosts.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">HTTP Read Timeout</td>
+            <td><code>{{ read_timeout }} seconds</code></td>
+            <td style="font-size: 0.8rem; color: var(--color-text-muted);">Caps total time waiting for server response bytes.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Max Redirect Hops</td>
+            <td><code>{{ max_redirects }} hops</code></td>
+            <td style="font-size: 0.8rem; color: var(--color-text-muted);">Mitigates redirect loops and validates redirect destination IP safety.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Max Response Body Size Cap</td>
+            <td><code>{{ max_response_bytes // 1024 // 1024 }} MB ({{ max_response_bytes }} bytes)</code></td>
+            <td style="font-size: 0.8rem; color: var(--color-text-muted);">Prevents denial-of-service from massive response bodies.</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">User-Agent Header</td>
+            <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--sev-pass-text);" colspan="2">
+              {{ scan_user_agent }}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Authorized Local Demo Target</td>
+            <td><code>{{ local_demo_url }}</code></td>
+            <td style="font-size: 0.8rem; color: var(--color-text-muted);">Single explicit loopback exception strictly for the sandbox server.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Troubleshooting Guide -->
+<div id="set-help" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Guided Troubleshooting for Common Audit Failures</div>
+      <div class="card-subtitle">Solutions for Network, DNS, and TLS Connection Warnings</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: var(--color-surface-elevated); padding: 14px 18px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+        <h4 style="color: var(--sev-critical); font-size: 0.95rem; margin-bottom: 4px;">SSRF Policy Block: Host resolves to private/loopback IP</h4>
+        <p style="font-size: 0.82rem; color: var(--color-text-muted); line-height: 1.5;">
+          <strong>Cause:</strong> The target domain resolves to an RFC 1918 address (10.x, 172.16-31.x, 192.168.x) or localhost.
+          <br><strong>Solution:</strong> External audits are strictly restricted to public routable IP addresses. For testing internal applications, use the isolated Local Demo Lab sandbox on 127.0.0.1:8765.
+        </p>
+      </div>
+
+      <div style="background: var(--color-surface-elevated); padding: 14px 18px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+        <h4 style="color: var(--sev-medium); font-size: 0.95rem; margin-bottom: 4px;">TLS Handshake Failure / Certificate Verification Error</h4>
+        <p style="font-size: 0.82rem; color: var(--color-text-muted); line-height: 1.5;">
+          <strong>Cause:</strong> The remote server has an expired, self-signed, or untrusted certificate chain.
+          <br><strong>Solution:</strong> GOVNEXIS never disables certificate verification. Verify that the target server presents a valid certificate issued by a public CA, or test against the local HTTP demo server.
+        </p>
+      </div>
+
+      <div style="background: var(--color-surface-elevated); padding: 14px 18px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+        <h4 style="color: var(--color-primary); font-size: 0.95rem; margin-bottom: 4px;">Connection Timeout Exceeded</h4>
+        <p style="font-size: 0.82rem; color: var(--color-text-muted); line-height: 1.5;">
+          <strong>Cause:</strong> The target host dropped packets, blocked the User-Agent, or took longer than 5 seconds to complete TCP handshake.
+          <br><strong>Solution:</strong> Verify that the host is online and allows inbound HTTP/HTTPS traffic from your network without web application firewall drops.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Database & Maintenance -->
+<div id="set-database" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Database Storage & Demonstration Data Management</div>
+      <div class="card-subtitle">SQLite Storage Management</div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <div style="font-size: 0.85rem; color: var(--color-text-muted); line-height: 1.6;">
+        <strong>Active Database Path:</strong> <code style="color: var(--color-primary);">{{ database_path }}</code>
+        <br><strong>Total Recorded Scans:</strong> {{ trends.total_scans }} audits
+        <br><strong>Open Remediation Tasks:</strong> {{ trends.open_remediation_tasks }} tasks
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <form action="{{ url_for('settings.seed_database') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          </svg>
+          Ensure Demo Audit Records Seeded
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

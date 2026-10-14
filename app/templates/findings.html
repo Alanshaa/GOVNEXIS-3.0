@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Findings Explorer — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Security Operations / 3. Findings Center{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--color-text); margin-bottom: 4px;">
+    Findings Explorer
+  </h2>
+  <p style="font-size: 0.85rem; color: var(--color-text-muted);">
+    Inspect, search, and filter evaluated configuration checks, observed evidence, and CVSS v3.0 vectors across audits.
+  </p>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="card">
+  <form method="GET" action="{{ url_for('findings.findings_view') }}">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="q">Search Evidence or Rule</label>
+        <input type="text" class="form-control" id="q" name="q" value="{{ query }}" placeholder="e.g. HSTS, CSP, cookie, server...">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="severity">Severity</label>
+        <select class="form-select" id="severity" name="severity">
+          <option value="All" {% if selected_severity == 'All' %}selected{% endif %}>All Severities</option>
+          <option value="Critical" {% if selected_severity == 'Critical' %}selected{% endif %}>Critical</option>
+          <option value="High" {% if selected_severity == 'High' %}selected{% endif %}>High</option>
+          <option value="Medium" {% if selected_severity == 'Medium' %}selected{% endif %}>Medium</option>
+          <option value="Low" {% if selected_severity == 'Low' %}selected{% endif %}>Low</option>
+          <option value="Informational" {% if selected_severity == 'Informational' %}selected{% endif %}>Informational</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="category">Category</label>
+        <select class="form-select" id="category" name="category">
+          <option value="All" {% if selected_category == 'All' %}selected{% endif %}>All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="status">Status</label>
+        <select class="form-select" id="status" name="status">
+          <option value="All" {% if selected_status == 'All' %}selected{% endif %}>All Statuses</option>
+          <option value="FAIL" {% if selected_status == 'FAIL' %}selected{% endif %}>FAIL</option>
+          <option value="WARNING" {% if selected_status == 'WARNING' %}selected{% endif %}>WARNING</option>
+          <option value="PASS" {% if selected_status == 'PASS' %}selected{% endif %}>PASS</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="scan_id">Scan Audit</label>
+        <select class="form-select" id="scan_id" name="scan_id">
+          <option value="">All Audits</option>
+          {% for s in scans %}
+            <option value="{{ s.id }}" {% if selected_scan_id == s.id %}selected{% endif %}>
+              #{{ s.id }} — {{ s.hostname }} ({{ s.timestamp[:10] }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">Filter</button>
+        <a href="{{ url_for('findings.findings_view') }}" class="btn btn-secondary">Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Results Header & Counts -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+  <div style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-muted);">
+    Displaying <span style="color: var(--color-text); font-weight: 800;">{{ total_found }}</span> finding(s)
+  </div>
+  <div style="display: flex; gap: 6px;">
+    <span class="badge badge-fail badge-pill">FAIL: {{ fail_count }}</span>
+    <span class="badge badge-warning badge-pill">WARNING: {{ warn_count }}</span>
+    <span class="badge badge-pass badge-pill">PASS: {{ pass_count }}</span>
+  </div>
+</div>
+
+<!-- Findings Accordion List -->
+{% if findings %}
+  {% for f in findings %}
+  <div class="finding-item">
+    <div class="finding-header">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span class="accordion-icon" style="color: var(--color-text-muted); display: inline-flex; align-items: center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+        
+        <!-- Status Badge -->
+        {% if f.status == 'PASS' %}
+          <span class="badge badge-pass badge-pill">PASS</span>
+        {% elif f.status == 'WARNING' %}
+          <span class="badge badge-warning badge-pill">WARNING</span>
+        {% elif f.status == 'FAIL' %}
+          <span class="badge badge-fail badge-pill">FAIL</span>
+        {% else %}
+          <span class="badge badge-not-assessed badge-pill">{{ f.status }}</span>
+        {% endif %}
+
+        <div>
+          <span style="font-weight: 700; color: var(--color-text); font-size: 0.9rem;">
+            {{ f.title }}
+          </span>
+          <span style="font-size: 0.72rem; color: var(--color-text-muted); margin-left: 8px;">
+            Target: <strong>{{ f.hostname }}</strong> (Scan #{{ f.scan_id }})
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <!-- CVSS Severity Tag -->
+        {% if f.cvss_status == 'SCORED' and f.cvss_score is not none %}
+          <span class="badge {% if f.cvss_score >= 9.0 %}badge-critical{% elif f.cvss_score >= 7.0 %}badge-high{% elif f.cvss_score >= 4.0 %}badge-medium{% else %}badge-low{% endif %}">
+            CVSS {{ "%.1f"|format(f.cvss_score) }} {{ f.cvss_severity }}
+          </span>
+        {% else %}
+          <span class="badge badge-not-assessed">NOT SCORED</span>
+        {% endif %}
+
+        <span class="badge" style="background: var(--color-bg-secondary); color: var(--color-text-muted); font-size: 0.7rem;">
+          {{ f.category }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Collapsible Body Content -->
+    <div class="finding-body open">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px;">
+        <!-- Evidence -->
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 6px;">
+            Observed Technical Evidence
+          </div>
+          <div class="code-block">{{ f.evidence }}</div>
+        </div>
+
+        <!-- CVSS Details -->
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 6px;">
+            CVSS v3.0 Severity & Vector
+          </div>
+          {% if f.cvss_status == 'SCORED' and f.cvss_vector %}
+            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 800; font-size: 0.9rem; color: {{ f.cvss_score | cvss_color }};">
+                  Base Score: {{ "%.1f"|format(f.cvss_score) }} ({{ f.cvss_severity }})
+                </span>
+                <span style="font-size: 0.68rem; color: var(--color-primary); font-weight: 600;">FIRST Official v3.0</span>
+              </div>
+              <div style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--color-text-muted); word-break: break-all;">
+                {{ f.cvss_vector }}
+              </div>
+            </div>
+          {% else %}
+            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px 12px;">
+              <div style="font-weight: 700; font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 4px;">
+                Classification: Not Scored (Defense in Depth)
+              </div>
+              <div style="font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.4;">
+                {{ f.cvss_unscored_reason or "Passive configuration audit findings without verified exploitable vectors are marked Not Scored in accordance with FIRST CVSS guidelines." }}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Why It Matters & Impact -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px;">
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 4px;">
+            Why It Matters
+          </div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.45;">
+            {{ f.why_it_matters }}
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; margin-bottom: 4px;">
+            Potential Threat Impact
+          </div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.45;">
+            {{ f.potential_impact }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Recommended Remediation -->
+      <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--color-primary); text-transform: uppercase;">
+            Recommended Remediation
+          </div>
+          <div style="font-size: 0.82rem; color: var(--color-text); margin-top: 2px;">
+            {{ f.recommended_action }}
+          </div>
+        </div>
+        <a href="{{ url_for('remediation.remediation_view', host=f.hostname) }}" class="btn btn-primary btn-sm">
+          Track in Remediation
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card" style="text-align: center; padding: 48px 20px;">
+    <div style="font-size: 1.05rem; font-weight: 700; color: var(--color-text);">No findings match the current filter criteria</div>
+    <div style="font-size: 0.82rem; color: var(--color-text-muted); margin-top: 6px;">Try clearing filters or search terms.</div>
+    <div style="margin-top: 14px;">
+      <a href="{{ url_for('findings.findings_view') }}" class="btn btn-secondary btn-sm">Clear All Filters</a>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

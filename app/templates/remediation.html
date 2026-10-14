@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Remediation Tracking — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Security Operations / 4. Remediation Checklist{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-text); margin-bottom: 4px;">
+    Remediation Tracking & Governance
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--color-text-muted);">
+    Audit task lifecycle (Open → In Progress → Fixed → Verified). A fix is verified only through empirical follow-up scans.
+  </p>
+</div>
+
+<!-- Task Stats Grid -->
+<div class="metrics-grid">
+  <div class="metric-card accent-amber">
+    <div class="metric-label">Open Tasks</div>
+    <div class="metric-value" style="color: var(--sev-medium);">{{ open_count }}</div>
+    <div class="metric-sub">Awaiting engineer triage</div>
+  </div>
+
+  <div class="metric-card accent-purple">
+    <div class="metric-label">In Progress</div>
+    <div class="metric-value" style="color: var(--color-primary);">{{ in_prog_count }}</div>
+    <div class="metric-sub">Active implementation</div>
+  </div>
+
+  <div class="metric-card accent-blue">
+    <div class="metric-label">Marked Fixed</div>
+    <div class="metric-value" style="color: var(--sev-low);">{{ fixed_count }}</div>
+    <div class="metric-sub">Pending verification audit</div>
+  </div>
+
+  <div class="metric-card accent-emerald">
+    <div class="metric-label">Empirically Verified</div>
+    <div class="metric-value" style="color: var(--sev-pass);">{{ verified_count }}</div>
+    <div class="metric-sub">Passed follow-up scan</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card">
+  <form method="GET" action="{{ url_for('remediation.remediation_view') }}">
+    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+      <div class="form-group" style="margin-bottom: 0; min-width: 220px;">
+        <label class="form-label" for="host">Target Hostname</label>
+        <select class="form-select" id="host" name="host">
+          <option value="">All Hosts</option>
+          {% for h in hosts %}
+            <option value="{{ h }}" {% if selected_host == h %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0; min-width: 180px;">
+        <label class="form-label" for="status">Lifecycle Status</label>
+        <select class="form-select" id="status" name="status">
+          <option value="All" {% if selected_status == 'All' %}selected{% endif %}>All Statuses</option>
+          {% for st in allowed_statuses %}
+            <option value="{{ st }}" {% if selected_status == st %}selected{% endif %}>{{ st }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Filter Tasks</button>
+      <a href="{{ url_for('remediation.remediation_view') }}" class="btn btn-secondary">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Remediation Tasks Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Remediation Action Items ({{ total_tasks }})</div>
+    <div class="card-subtitle">State transitions are persisted in SQLite with CSRF verification</div>
+  </div>
+
+  {% if tasks %}
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Target Host</th>
+          <th>Security Control</th>
+          <th>Lifecycle Status</th>
+          <th>Engineer Notes</th>
+          <th>Last Updated</th>
+          <th>Update State</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tasks %}
+        <tr>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: var(--color-text-muted);">#{{ t.id }}</td>
+          <td style="font-weight: 600; color: var(--color-primary);">{{ t.target_host }}</td>
+          <td style="font-weight: 600; color: var(--color-text);">
+            {{ t.title }}
+            <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-text-muted);">{{ t.check_id }}</div>
+          </td>
+          <td>
+            {% if t.status == 'Open' %}
+              <span class="badge badge-warning badge-pill">Open</span>
+            {% elif t.status == 'In Progress' %}
+              <span class="badge badge-info badge-pill">In Progress</span>
+            {% elif t.status == 'Fixed' %}
+              <span class="badge badge-low badge-pill">Fixed</span>
+            {% elif t.status == 'Verified' %}
+              <span class="badge badge-pass badge-pill">Verified</span>
+            {% endif %}
+          </td>
+          <td style="font-size: 0.8rem; color: var(--color-text-muted); max-width: 250px;">
+            {{ t.notes or 'No notes recorded.' }}
+          </td>
+          <td style="font-size: 0.75rem; color: var(--color-text-muted);">{{ t.updated_at[:16] }}</td>
+          <td>
+            <!-- Status Update Form with CSRF -->
+            <form action="{{ url_for('remediation.update_task_view') }}" method="POST" style="display: flex; gap: 6px; align-items: center;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="task_id" value="{{ t.id }}">
+              
+              <select name="status" class="form-select" style="padding: 4px 8px; font-size: 0.78rem; width: auto;">
+                {% for st in allowed_statuses %}
+                  <option value="{{ st }}" {% if t.status == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+              </select>
+
+              <input type="text" name="notes" placeholder="Note..." value="{{ t.notes }}" class="form-control" style="padding: 4px 8px; font-size: 0.78rem; width: 120px;">
+
+              <button type="submit" class="btn btn-secondary btn-sm" title="Save state">
+                Save
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+    <div style="margin-bottom: 12px; display: flex; justify-content: center;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--sev-pass)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        <polyline points="9 12 11 14 15 10"></polyline>
+      </svg>
+    </div>
+    <div style="font-weight: 700; color: var(--color-text);">No active remediation tasks match criteria</div>
+    <div style="font-size: 0.82rem; margin-top: 4px;">Tasks are automatically logged whenever a scan discovers failed or warning checks.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Server Hardening Configuration Playbook Reference -->
+<div class="card" style="margin-top: 32px;">
+  <div class="card-header">
+    <div class="card-title">Production Server Configuration Playbooks</div>
+    <div class="card-subtitle">Copy-Paste Defensive Header Directives for Modern Web Servers</div>
+  </div>
+
+  <div class="tabs-nav">
+    <button class="tab-btn active" data-tab="tab-nginx">Nginx Config</button>
+    <button class="tab-btn" data-tab="tab-apache">Apache httpd Config</button>
+    <button class="tab-btn" data-tab="tab-caddy">Caddyfile</button>
+  </div>
+
+  <!-- Nginx Tab -->
+  <div id="tab-nginx" class="tab-content active">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+      <button class="btn btn-secondary btn-sm btn-copy" data-copy="# Nginx Production Security Headers
+add_header Strict-Transport-Security &quot;max-age=31536000; includeSubDomains; preload&quot; always;
+add_header Content-Security-Policy &quot;default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';&quot; always;
+add_header X-Frame-Options &quot;DENY&quot; always;
+add_header X-Content-Type-Options &quot;nosniff&quot; always;
+add_header Referrer-Policy &quot;strict-origin-when-cross-origin&quot; always;
+add_header Permissions-Policy &quot;camera=(), microphone=(), geolocation=(), payment=()&quot; always;
+server_tokens off;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Nginx Snippet
+      </button>
+    </div>
+    <pre class="code-block"><code># /etc/nginx/conf.d/security-headers.conf
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';" always;
+add_header X-Frame-Options "DENY" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+server_tokens off;</code></pre>
+  </div>
+
+  <!-- Apache Tab -->
+  <div id="tab-apache" class="tab-content">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+      <button class="btn btn-secondary btn-sm btn-copy" data-copy="# Apache .htaccess or VirtualHost Headers
+Header always set Strict-Transport-Security &quot;max-age=31536000; includeSubDomains; preload&quot;
+Header always set Content-Security-Policy &quot;default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';&quot;
+Header always set X-Frame-Options &quot;DENY&quot;
+Header always set X-Content-Type-Options &quot;nosniff&quot;
+Header always set Referrer-Policy &quot;strict-origin-when-cross-origin&quot;
+Header always set Permissions-Policy &quot;camera=(), microphone=(), geolocation=(), payment=()&quot;
+ServerTokens Prod
+ServerSignature Off">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Apache Snippet
+      </button>
+    </div>
+    <pre class="code-block"><code># Apache /etc/apache2/conf-available/security.conf
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';"
+Header always set X-Frame-Options "DENY"
+Header always set X-Content-Type-Options "nosniff"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+ServerTokens Prod
+ServerSignature Off</code></pre>
+  </div>
+
+  <!-- Caddy Tab -->
+  <div id="tab-caddy" class="tab-content">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+      <button class="btn btn-secondary btn-sm btn-copy" data-copy="example.gov {
+    header {
+        Strict-Transport-Security &quot;max-age=31536000; includeSubDomains; preload&quot;
+        Content-Security-Policy &quot;default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';&quot;
+        X-Frame-Options &quot;DENY&quot;
+        X-Content-Type-Options &quot;nosniff&quot;
+        Referrer-Policy &quot;strict-origin-when-cross-origin&quot;
+        Permissions-Policy &quot;camera=(), microphone=(), geolocation=(), payment=()&quot;
+    }
+}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Caddyfile
+      </button>
+    </div>
+    <pre class="code-block"><code># Caddyfile
+example.gov {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    }
+}</code></pre>
+  </div>
+</div>
+{% endblock %}

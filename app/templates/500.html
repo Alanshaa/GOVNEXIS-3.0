@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}500 Internal Error — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Error / 500 Server Error{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center; padding: 60px 20px; max-width: 600px; margin: 40px auto;">
+  <div style="font-size: 3rem; margin-bottom: 12px; color: var(--sev-critical);">500</div>
+  <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 8px;">
+    Internal Processing Error
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 24px;">
+    An unexpected error occurred while executing the request. Defensive guards protected system state.
+  </p>
+  <div>
+    <a href="{{ url_for('scanner.scanner_view') }}" class="btn btn-primary">
+      Return to Scanner
+    </a>
+  </div>
+</div>
+{% endblock %}

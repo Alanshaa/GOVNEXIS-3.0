@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}404 Not Found — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Error / 404 Not Found{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center; padding: 60px 20px; max-width: 600px; margin: 40px auto;">
+  <div style="font-size: 3rem; margin-bottom: 12px; color: var(--sev-critical);">404</div>
+  <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 8px;">
+    {{ error_title or "Requested Resource Not Found" }}
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 24px;">
+    {{ error_message or "The endpoint or audit record you were looking for does not exist or has been removed." }}
+  </p>
+  <div>
+    <a href="{{ url_for('scanner.scanner_view') }}" class="btn btn-primary">
+      Return to New Scan
+    </a>
+    <a href="{{ url_for('main.overview') }}" class="btn btn-secondary" style="margin-left: 8px;">
+      View Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

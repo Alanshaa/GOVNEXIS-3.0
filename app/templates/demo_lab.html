@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Local Demo Sandbox Lab — {{ app_name }}{% endblock %}
+
+{% block breadcrumbs %}Sandbox & Standards / 8. Local Demo Lab{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--color-text); margin-bottom: 4px;">
+    Local Controlled Demo Sandbox
+  </h2>
+  <p style="font-size: 0.88rem; color: var(--color-text-muted);">
+    Isolated loopback test harness on <code style="color: var(--color-primary);">127.0.0.1:8765</code> for air-gapped evaluation and hackathon demonstrations.
+  </p>
+</div>
+
+<!-- Sandbox Isolation Notice -->
+<div class="card" style="border-left: 4px solid var(--sev-pass); background: var(--sev-pass-bg);">
+  <div style="display: flex; gap: 12px; align-items: flex-start;">
+    <div style="line-height: 1; color: var(--sev-pass-text); padding-top: 2px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 2v7.31"></path>
+        <path d="M14 9.3V2"></path>
+        <path d="M8.5 2h7"></path>
+        <path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path>
+        <path d="M5.52 16h12.96"></path>
+      </svg>
+    </div>
+    <div>
+      <div style="font-weight: 700; font-size: 0.88rem; color: var(--sev-pass-text); text-transform: uppercase;">
+        Controlled Loopback Sandbox Environment
+      </div>
+      <div style="font-size: 0.82rem; color: var(--color-text-muted); margin-top: 4px;">
+        This sandbox server runs strictly on your local loopback interface (<code>127.0.0.1:8765</code>).
+        The GOVNEXIS URL validator strictly enforces an explicit single-port exception for this sandbox, preventing
+        any scans to other internal or local services.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Grid -->
+<div class="metrics-grid">
+  <div class="metric-card {% if status.running %}accent-emerald{% else %}accent-red{% endif %}">
+    <div class="metric-label">Sandbox Daemon Status</div>
+    <div class="metric-value" style="color: {% if status.running %}var(--sev-pass){% else %}var(--sev-critical){% endif %};">
+      {% if status.running %}ONLINE{% else %}OFFLINE{% endif %}
+    </div>
+    <div class="metric-sub">Bound strictly to {{ status.host }}:{{ status.port }}</div>
+  </div>
+
+  <div class="metric-card {% if status.mode == 'hardened' %}accent-emerald{% else %}accent-amber{% endif %}">
+    <div class="metric-label">Simulated Security Posture</div>
+    <div class="metric-value" style="color: {% if status.mode == 'hardened' %}var(--sev-pass){% else %}var(--sev-medium){% endif %}; font-size: 1.6rem;">
+      {{ status.mode | upper }}
+    </div>
+    <div class="metric-sub">
+      {% if status.mode == 'hardened' %}
+        Strict HSTS, CSP, XFO, XCTO & Secure Cookies enabled
+      {% else %}
+        Missing headers, disclosure banner & insecure session cookie
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="metric-card accent-purple">
+    <div class="metric-label">Target Sandbox URL</div>
+    <div class="metric-value" style="font-size: 1.3rem; color: var(--color-primary); word-break: break-all;">
+      {{ local_demo_url }}
+    </div>
+    <div class="metric-sub">Authorized loopback target</div>
+  </div>
+</div>
+
+<!-- Interactive Sandbox Controls -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Interactive Sandbox Simulation Controls</div>
+    <div class="card-subtitle">Toggle server posture or trigger instant automated audits</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+    <!-- Baseline Scan Control -->
+    <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="badge badge-fail badge-pill">STEP 1</span>
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-text);">Audit Baseline State</h4>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-bottom: 16px; line-height: 1.45;">
+        Sets the local sandbox to its misconfigured baseline (missing CSP, HSTS, XFO; leaking version banner) and audits it.
+      </p>
+      <form action="{{ url_for('demo_lab.run_demo_scan') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mode" value="baseline">
+        <button type="submit" class="btn btn-secondary btn-block">
+          Run Baseline Audit
+        </button>
+      </form>
+    </div>
+
+    <!-- Toggle Hardened Posture -->
+    <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="badge badge-warning badge-pill">STEP 2</span>
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-text);">Apply Hardened Controls</h4>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-bottom: 16px; line-height: 1.45;">
+        Simulates engineering remediation: activates defense-in-depth headers and secure cookie attributes on the sandbox.
+      </p>
+      <form action="{{ url_for('demo_lab.toggle_mode') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mode" value="{% if status.mode == 'hardened' %}baseline{% else %}hardened{% endif %}">
+        <button type="submit" class="btn btn-secondary btn-block">
+          Switch to {% if status.mode == 'hardened' %}Baseline{% else %}Hardened{% endif %} Mode
+        </button>
+      </form>
+    </div>
+
+    <!-- Follow-Up Hardened Scan -->
+    <div style="background: var(--color-surface-elevated); border: 1px solid var(--sev-pass-border); border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="badge badge-pass badge-pill">STEP 3</span>
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--color-text);">Verify Hardened Rescan</h4>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--color-text-muted); margin-bottom: 16px; line-height: 1.45;">
+        Audits the hardened server configuration to verify empirical score improvement and CVSS reduction.
+      </p>
+      <form action="{{ url_for('demo_lab.run_demo_scan') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mode" value="hardened">
+        <button type="submit" class="btn btn-primary btn-block">
+          Run Verification Audit
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Before-and-After Verification in Demo Lab -->
+{% if comparison and not comparison.error %}
+<div class="card" style="border: 1px solid var(--sev-pass-border);">
+  <div class="card-header">
+    <div class="card-title">Live Demonstration Verification Results</div>
+    <div class="card-subtitle">Empirical Trajectory Delta between Most Recent Sandbox Scans</div>
+  </div>
+
+  <div style="display: flex; gap: 24px; align-items: center; justify-content: space-around; flex-wrap: wrap; padding: 12px 0;">
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase;">Baseline CVSS v3.0</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: {{ comparison.cvss_a | cvss_color }};">
+        {{ "%.1f"|format(comparison.cvss_a) }}<span style="font-size: 1rem; color: var(--color-text-muted);">/10.0</span>
+      </div>
+      <span class="badge {% if comparison.cvss_a >= 7.0 %}badge-high{% elif comparison.cvss_a >= 4.0 %}badge-medium{% else %}badge-low{% endif %}">
+        {{ comparison.sev_a | upper }} RISK
+      </span>
+    </div>
+
+    <div style="color: var(--color-primary); display: flex; align-items: center;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    </div>
+
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase;">Hardened CVSS v3.0</div>
+      <div style="font-size: 2.2rem; font-weight: 800; color: {{ comparison.cvss_b | cvss_color }};">
+        {{ "%.1f"|format(comparison.cvss_b) }}<span style="font-size: 1rem; color: var(--color-text-muted);">/10.0</span>
+      </div>
+      <span class="badge {% if comparison.cvss_b == 0.0 %}badge-pass{% elif comparison.cvss_b < 4.0 %}badge-low{% else %}badge-warning{% endif %}">
+        {{ comparison.sev_b | upper }} RISK
+      </span>
+    </div>
+
+    <div style="height: 50px; width: 1px; background: var(--color-border);"></div>
+
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase;">CVSS Risk Reduction</div>
+      <div style="font-size: 2.2rem; font-weight: 900; color: var(--sev-pass);">
+        {% if comparison.cvss_delta < 0 %}{{ "%.1f"|format(comparison.cvss_delta) }}{% else %}+{{ "%.1f"|format(comparison.cvss_delta) }}{% endif %}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--sev-pass-text);">
+        {{ comparison.resolved_count }} vulnerabilities eliminated
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 16px; text-align: center; border-top: 1px solid var(--color-border); padding-top: 14px;">
+    <a href="{{ url_for('verification.verification_view', baseline_id=comparison.baseline.id, rescan_id=comparison.rescan.id) }}" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+      Open Full Verification View
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent Sandbox Scans -->
+{% if all_demo_scans %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Recent Sandbox Audit Records</div>
+    <div class="card-subtitle">Stored audit executions for 127.0.0.1:8765</div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Timestamp</th>
+          <th>CVSS v3.0 Base Score</th>
+          <th>Qualitative Severity</th>
+          <th>Checks (P/W/F)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in all_demo_scans %}
+        <tr>
+          <td style="font-family: var(--font-mono); font-weight: 700;">#{{ s.id }}</td>
+          <td style="font-size: 0.8rem; color: var(--color-text-muted);">{{ s.timestamp[:19] }}</td>
+          <td>
+            <span style="font-weight: 800; font-size: 1.05rem; color: {{ s.max_cvss | cvss_color }};">
+              {{ "%.1f"|format(s.max_cvss) }}
+            </span>
+            <span style="font-size: 0.75rem; color: var(--color-text-muted);">/ 10.0</span>
+          </td>
+          <td>
+            {% if s.max_cvss and s.max_cvss > 0 %}
+              <span class="badge {% if s.max_cvss >= 9.0 %}badge-critical{% elif s.max_cvss >= 7.0 %}badge-high{% elif s.max_cvss >= 4.0 %}badge-medium{% else %}badge-low{% endif %}">
+                {{ s.cvss_severity }}
+              </span>
+            {% else %}
+              <span class="badge badge-pass">None (0.0)</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge badge-pass">P: {{ s.passed_checks }}</span>
+            <span class="badge badge-warning">W: {{ s.warning_checks }}</span>
+            <span class="badge badge-fail">F: {{ s.failed_checks }}</span>
+          </td>
+          <td>
+            <a href="{{ url_for('scanner.scanner_view', scan_id=s.id) }}" class="btn btn-secondary btn-sm">
+              Inspect
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
