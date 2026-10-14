@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # GOVNEXIS 3.0 — Government Website Security Configuration Auditing Platform
 
 > **"See the Risk. Fix the Gap. Build Trust."**  
@@ -262,3 +263,7 @@ The built-in demo lab enables repeatable live demonstration of web security conf
 ## 12. License & Ethical Disclaimer
 
 **Defensive & Authorized Use Only:** GOVNEXIS 3.0 is designed exclusively for authorized system administrators, security auditors, and government agency web owners. Scanning targets without explicit authorization is strictly prohibited under applicable computer crime and cybersecurity statutes.
+=======
+# GOVNEXIS-3.0
+GOVNEXIS 3.0, created by NEXION, is an automated web security configuration auditor. It assesses HTTP headers and TLS using official FIRST CVSS v3.0 base scoring, with actionable remediation playbooks and reports.
+>>>>>>> 0ea1dfdaddfac0451f0fdc086b93b973eae40eda
